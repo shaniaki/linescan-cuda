@@ -9,7 +9,9 @@
  *
  */
 
-#include <vector>
+#include <stdio.h>
+#include <stdlib.h>
+
 #include "globals.hpp"
 
 using namespace std;
@@ -38,14 +40,14 @@ void thread_allocator(double* input_image,
 		int index = 0;
 		for (int taod = (thread_state + ta)->start;
 				taod <= (thread_state + ta)->end; taod++) {
-			*(image_parts + (image_width / N) * ta + index) =
-					*(input_image + (sn * image_width) + taod);
+			image_parts[(image_width / N) * ta + index] =
+					input_image[(sn * image_width) + taod];
 			index++;
 		}
-		*(image_parts + (image_width / N) * ta + index) = -1; // to terminate the image part
+		image_parts[(image_width / N) * ta + index] = -1; // to terminate the image part
 		/// next state
 		if ((aoi_coordinates + sn * N + ta)->start != -1)
-			*(thread_state + ta) = *(aoi_coordinates + sn * N + ta);
+			thread_state[ta] = aoi_coordinates[sn * N + ta];
 	}
 }
 
@@ -64,16 +66,15 @@ void auto_correlate(double imgPreproc2DDFA,
 					int* parallelSW,
 					unsigned int sn,
 					unsigned int noz,
-					std::vector<std::vector<double> >& ac_samples,
-					std::vector<int>& ac_sw,
-					int& ac_ignore_it,
-					std::vector<double>& ac_sampWin,
-					std::vector<double>& autoCorrToCombSubMul)
+					double* ac_samples,
+					int* ac_sw,
+					int ac_ignore_it,
+					double* ac_sampWin,
+					double* autoCorrToCombSubMul)
 {
 	//// output decoding
-	ac_ignore_it = BUFFER_SIZE / 2 - ac_sw[noz];
-	ac_sampWin.assign(ac_samples[noz].begin() + ac_ignore_it,
-			ac_samples[noz].end() - ac_ignore_it);
+	for (int i=0;i<2*ac_sw[noz]+1;i++)
+			ac_sampWin[i] = ac_samples[noz*(BUFFER_SIZE+1) + ac_ignore_it + i];
 	for (int b = -ac_sw[noz]; b < ac_sw[noz]; b++)
 		for (int c = 0; c <= ac_sw[noz] * 2; c++) {
 			int d = c + b + 1;
@@ -83,25 +84,27 @@ void auto_correlate(double imgPreproc2DDFA,
 						* ac_sampWin[d];
 		}
 	//// next state
-	int ac_temp = *(parallelSW + sn * N + noz);
+	int ac_temp = parallelSW[sn * N + noz];
 	if (ac_temp != -1)
 		ac_sw[noz] = ac_temp;
 
-	ac_samples[noz].push_back(imgPreproc2DDFA);
-	ac_samples[noz].erase(ac_samples[noz].begin());
+	for (int i=0;i<BUFFER_SIZE;i++)
+		ac_samples[noz*(BUFFER_SIZE+1)+i] = ac_samples[noz*(BUFFER_SIZE+1)+(i+1)];
+	ac_samples[noz*(BUFFER_SIZE+1) + BUFFER_SIZE] = imgPreproc2DDFA;
 }
 void cross_correlate(int ac_ignore_it,
-					const std::vector<int>& ac_sw,
-					const std::vector<double>& ac_sampWin,
-					std::vector<std::vector<double> >& cc_coefs,
+					int* ac_sw,
+					double* ac_sampWin,
+					double* cc_coefs,
 					unsigned int noz,
 					double* parallelCoeffs,
 					unsigned int sn,
-					std::vector<double>& xCorrToCombSubMul) {
+					double* xCorrToCombSubMul)
+{
 	//// output decoding
-	std::vector<double> cc_coeffWin;
-	cc_coeffWin.assign(cc_coefs[noz].begin() + ac_ignore_it,
-			cc_coefs[noz].end() - ac_ignore_it);
+	double* cc_coeffWin = (double*)malloc((2*ac_sw[noz]+1)*sizeof(double));
+	for (int i=0;i<2*ac_sw[noz]+1;i++)
+		cc_coeffWin[i] =cc_coefs[noz*(BUFFER_SIZE+1) + ac_ignore_it + i];
 	for (int b = -ac_sw[noz]; b < ac_sw[noz]; b++)
 		for (int c = 0; c <= ac_sw[noz] * 2; c++) {
 			int d = c + b + 1;
@@ -114,43 +117,49 @@ void cross_correlate(int ac_ignore_it,
 	double* cc_temp = parallelCoeffs + sn * N * BUFFER_SIZE
 			+ noz * BUFFER_SIZE;
 	if (*cc_temp != -1)
-		cc_coefs[noz].assign(cc_temp, cc_temp + BUFFER_SIZE);
+		for (int i=0;i<BUFFER_SIZE;i++)
+				cc_coefs[noz*(BUFFER_SIZE+1)+i] = cc_temp[i];
 }
 
-void submul(std::vector<double>& combSubMulToCombAvgSub,
-			const std::vector<double>& xCorrToCombSubMul,
-			const std::vector<double>& autoCorrToCombSubMul)
+void submul(double* combSubMulToCombAvgSub,
+			double* xCorrToCombSubMul,
+			double* autoCorrToCombSubMul,
+			unsigned int win_size)
 {
-	for (int i = 0; i < combSubMulToCombAvgSub.size(); i++)
+	for (int i = 0; i < win_size; i++)
 		combSubMulToCombAvgSub[i] = (xCorrToCombSubMul[i]
 				- autoCorrToCombSubMul[i]) / autoCorrToCombSubMul[i];
 }
-void avgsub(const std::vector<double>& combSubMulToCombAvgSub,
-			std::vector<double>& combAvgSubtoOutBlock) {
+void avgsub(double* combSubMulToCombAvgSub,
+			double* combAvgSubtoOutBlock,
+			unsigned int win_size)
+{
 	double as_average = 0;
-	for (int i = 0; i < combSubMulToCombAvgSub.size(); i++)
+	for (int i = 0; i < win_size; i++)
 		as_average += combSubMulToCombAvgSub[i];
-	as_average /= combSubMulToCombAvgSub.size();
-	for (int i = 0; i < combSubMulToCombAvgSub.size(); i++)
+	as_average /= win_size;
+	for (int i = 0; i < win_size; i++)
 		combAvgSubtoOutBlock[i] = combSubMulToCombAvgSub[i] - as_average;
 }
 void out_block(double* reference,
 				unsigned int sn,
 				unsigned int noz,
-				std::vector<std::vector<double> >& out_buffer,
-				const std::vector<double>& combAvgSubtoOutBlock)
+				double* out_buffer,
+				double* combAvgSubtoOutBlock,
+				unsigned int win_size)
 {
 	// output
 	/// output decoding
-	*(reference + sn * N + noz) = out_buffer[noz].front();
-	printf("%f ", out_buffer[noz].front());
+	reference[sn * N + noz] = out_buffer[noz*(BUFFER_SIZE+1)];
+	printf("%f ", out_buffer[noz*(BUFFER_SIZE+1)]);
 	/// next state
-	out_buffer[noz].push_back(0);
-	out_buffer[noz].erase(out_buffer[noz].begin());
-	unsigned int out_ignore_it = (BUFFER_SIZE - combAvgSubtoOutBlock.size())
+	for (int i=0;i<BUFFER_SIZE;i++)
+			out_buffer[noz*(BUFFER_SIZE+1)+i] = out_buffer[noz*(BUFFER_SIZE+1)+(i+1)];
+	out_buffer[noz*(BUFFER_SIZE+1) + BUFFER_SIZE] = 0;
+	unsigned int out_ignore_it = (BUFFER_SIZE - win_size)
 			/ 2;
 	for (int i = 0; i < BUFFER_SIZE - (2 * out_ignore_it); i++) {
-		out_buffer[noz][i + out_ignore_it] = out_buffer[noz][i + out_ignore_it]
+		out_buffer[noz*(BUFFER_SIZE+1)+i + out_ignore_it] = out_buffer[noz*(BUFFER_SIZE+1) + i + out_ignore_it]
 				+ combAvgSubtoOutBlock[i];
 
 		//for (int i=0;i<out_buffer[noz].size();i++) printf("%f ", out_buffer[noz][i]); printf("\n");
@@ -169,17 +178,16 @@ void computeGold(double* reference,
     unsigned int num_threads = N;
 	// state variables
 	/// thread allocator
-	aoi* thread_state = (aoi*)malloc(num_threads*sizeof(aoi));
-	memset(thread_state, 0, num_threads*sizeof(aoi));
+	aoi* thread_state = (aoi*)calloc(num_threads,sizeof(aoi));
 	double* image_parts = (double*)malloc(image_width*sizeof(double));
 	/// image preprocessor
 	/// auto correlation
-	std::vector<std::vector<double> > ac_samples(num_threads,std::vector<double>(BUFFER_SIZE + 1,0));
-	std::vector<int> ac_sw(num_threads,0);
+	double* ac_samples = (double*)calloc(num_threads * (BUFFER_SIZE + 1), sizeof(double));
+	int* ac_sw = (int*)calloc(num_threads,sizeof(int));
 	/// cross correlation
-	std::vector<std::vector<double> > cc_coefs(num_threads,std::vector<double>(BUFFER_SIZE + 1,0));
+	double* cc_coefs = (double*)calloc(num_threads * (BUFFER_SIZE + 1), sizeof(double));
 	/// output block
-	std::vector<std::vector<double> > out_buffer(num_threads,std::vector<double>(BUFFER_SIZE + 1,0));
+	double* out_buffer = (double*)calloc(num_threads * (BUFFER_SIZE + 1), sizeof(double));
 
 	// computation
 	for (unsigned int sn=0;sn<image_height;sn++) {
@@ -195,32 +203,41 @@ void computeGold(double* reference,
 
 			// single DDFA
 			/// auto correlation
-			std::vector<double> autoCorrToCombSubMul(ac_sw[noz] * 2, 0);
-			int ac_ignore_it;
-			std::vector<double> ac_sampWin;
+			double *autoCorrToCombSubMul = (double*)calloc(ac_sw[noz] * 2, sizeof(double));
+			int ac_ignore_it = BUFFER_SIZE / 2 - ac_sw[noz];
+			double *ac_sampWin = (double*)calloc(ac_sw[noz] * 2 + 1, sizeof(double));
 			auto_correlate(imgPreproc2DDFA, parallelSW, sn, noz, ac_samples, ac_sw, ac_ignore_it, ac_sampWin, autoCorrToCombSubMul);
 
 			/// cross correlation
 			/// note: we use the ac_samples, ac_ignore_it, ac_sampWin and ac_sw from the auto correlation stage
-			std::vector<double> xCorrToCombSubMul(ac_sw[noz] * 2, 0);
+			double *xCorrToCombSubMul = (double*)calloc(ac_sw[noz] * 2, sizeof(double));
 			//// output decoding
 			cross_correlate(ac_ignore_it, ac_sw, ac_sampWin, cc_coefs, noz, parallelCoeffs, sn, xCorrToCombSubMul);
+			free(ac_sampWin);
 
 			// subtract and multiply ((x-y)/y)
-			std::vector<double> combSubMulToCombAvgSub(BUFFER_SIZE);
-			submul(combSubMulToCombAvgSub, xCorrToCombSubMul, autoCorrToCombSubMul);
+			double *combSubMulToCombAvgSub = (double*)calloc(ac_sw[noz] * 2, sizeof(double));
+			submul(combSubMulToCombAvgSub, xCorrToCombSubMul, autoCorrToCombSubMul, ac_sw[noz] * 2);
+			free(autoCorrToCombSubMul);
+			free(xCorrToCombSubMul);
 
 			// average and subtract
-			std::vector<double> combAvgSubtoOutBlock(BUFFER_SIZE);
-			avgsub(combSubMulToCombAvgSub, combAvgSubtoOutBlock);
+			double *combAvgSubtoOutBlock = (double*)calloc(ac_sw[noz] * 2, sizeof(double));
+			avgsub(combSubMulToCombAvgSub, combAvgSubtoOutBlock, ac_sw[noz] * 2);
+			free(combSubMulToCombAvgSub);
 
 			// output
 			/// output decoding
-			out_block(reference, sn, noz, out_buffer, combAvgSubtoOutBlock);
+			out_block(reference, sn, noz, out_buffer, combAvgSubtoOutBlock, ac_sw[noz] * 2);
+			free(combAvgSubtoOutBlock);
 		}
 		printf("\n");
 	}
 	free(thread_state);
 	free(image_parts);
+	free(ac_samples);
+	free(cc_coefs);
+	free(out_buffer);
+	free(ac_sw);
 }
 
