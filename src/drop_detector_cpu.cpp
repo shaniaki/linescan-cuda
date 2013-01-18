@@ -11,6 +11,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "globals.hpp"
 
@@ -100,18 +101,15 @@ void cross_correlate(int ac_ignore_it,
 					double* xCorrToCombSubMul)
 {
 	//// output decoding
-	double* cc_coeffWin = (double*)malloc((2*ac_sw[noz]+1)*sizeof(double));
-	for (int i=0;i<2*ac_sw[noz]+1;i++)
-		cc_coeffWin[i] =cc_coefs[noz*(BUFFER_SIZE+1) + ac_ignore_it + i];
 	for (int b = -ac_sw[noz]; b < ac_sw[noz]; b++)
 		for (int c = 0; c <= ac_sw[noz] * 2; c++) {
 			int d = c + b + 1;
 			int k = b + ac_sw[noz];
 			if ((d >= 0) && (d < ac_sw[noz] * 2))
 				xCorrToCombSubMul[ac_sw[noz] * 2 - k - 1] += ac_sampWin[c]
-						* cc_coeffWin[d];
+						* cc_coefs[noz*(BUFFER_SIZE+1) + ac_ignore_it + d];
 		}
-	free(cc_coeffWin);
+//	free(cc_coeffWin);
 	//// next state
 	double* cc_temp = parallelCoeffs + sn * N * BUFFER_SIZE
 			+ noz * BUFFER_SIZE;
@@ -202,33 +200,31 @@ void computeGold(double* reference,
 
 			// single DDFA
 			/// auto correlation
-			double *autoCorrToCombSubMul = (double*)calloc(ac_sw[noz] * 2, sizeof(double));
+			double autoCorrToCombSubMul[BUFFER_SIZE];
+			memset(autoCorrToCombSubMul, 0, BUFFER_SIZE*sizeof(double));
 			int ac_ignore_it = BUFFER_SIZE / 2 - ac_sw[noz];
-			double *ac_sampWin = (double*)calloc(ac_sw[noz] * 2 + 1, sizeof(double));
+			double ac_sampWin[(BUFFER_SIZE*2+1)];
+			memset(ac_sampWin, 0, (BUFFER_SIZE*2+1)*sizeof(double));
 			auto_correlate(imgPreproc2DDFA, parallelSW, sn, noz, ac_samples, ac_sw, ac_ignore_it, ac_sampWin, autoCorrToCombSubMul);
 
 			/// cross correlation
 			/// note: we use the ac_samples, ac_ignore_it, ac_sampWin and ac_sw from the auto correlation stage
-			double *xCorrToCombSubMul = (double*)calloc(ac_sw[noz] * 2, sizeof(double));
+			double xCorrToCombSubMul[BUFFER_SIZE];
+			memset(xCorrToCombSubMul, 0, BUFFER_SIZE*sizeof(double));
 			//// output decoding
 			cross_correlate(ac_ignore_it, ac_sw, ac_sampWin, cc_coefs, noz, parallelCoeffs, sn, xCorrToCombSubMul);
-			free(ac_sampWin);
 
 			// subtract and multiply ((x-y)/y)
-			double *combSubMulToCombAvgSub = (double*)calloc(ac_sw[noz] * 2, sizeof(double));
+			double combSubMulToCombAvgSub[BUFFER_SIZE];
 			submul(combSubMulToCombAvgSub, xCorrToCombSubMul, autoCorrToCombSubMul, ac_sw[noz] * 2);
-			free(autoCorrToCombSubMul);
-			free(xCorrToCombSubMul);
 
 			// average and subtract
-			double *combAvgSubtoOutBlock = (double*)calloc(ac_sw[noz] * 2, sizeof(double));
+			double combAvgSubtoOutBlock[BUFFER_SIZE];
 			avgsub(combSubMulToCombAvgSub, combAvgSubtoOutBlock, ac_sw[noz] * 2);
-			free(combSubMulToCombAvgSub);
 
 			// output
 			/// output decoding
 			out_block(reference, sn, noz, out_buffer, combAvgSubtoOutBlock, ac_sw[noz] * 2);
-			free(combAvgSubtoOutBlock);
 		}
 		printf("\n");
 	}
