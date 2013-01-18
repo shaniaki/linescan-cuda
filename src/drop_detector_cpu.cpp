@@ -18,20 +18,20 @@
 ////////////////////////////////////////////////////////////////////////////////
 // export C interface
 extern "C"
-void computeGold(double* reference,
-				double* input_image,
+void computeGold(float* reference,
+				float* input_image,
 				aoi* aoi_coordinates,
-				double* parallelCoeffs,
+				float* parallelCoeffs,
 				int* parallelSW,
 				unsigned int image_height,
 				unsigned int image_width);
 
-void thread_allocator(double* input_image,
+void thread_allocator(float* input_image,
 					aoi* aoi_coordinates,
 					unsigned int image_width,
 					unsigned int sn,
 					aoi* thread_state,
-					double* image_parts)
+					float* image_parts)
 {
 	// thread allocator
 	for (unsigned int ta = 0; ta < N; ta++) {
@@ -50,10 +50,10 @@ void thread_allocator(double* input_image,
 	}
 }
 
-double preproc_image(double* image_parts, unsigned int image_width, unsigned int noz)
+float preproc_image(float* image_parts, unsigned int image_width, unsigned int noz)
 {
-	double imgPreproc2DDFA = 0;
-	double* imgpre = image_parts + (image_width / N) * noz;
+	float imgPreproc2DDFA = 0;
+	float* imgpre = image_parts + (image_width / N) * noz;
 	while (*(imgpre) != -1) {
 		imgPreproc2DDFA += WHITE_VALUE - *(imgpre);
 		imgpre++;
@@ -61,15 +61,15 @@ double preproc_image(double* image_parts, unsigned int image_width, unsigned int
 	return imgPreproc2DDFA;
 }
 
-void auto_correlate(double imgPreproc2DDFA,
+void auto_correlate(float imgPreproc2DDFA,
 					int* parallelSW,
 					unsigned int sn,
 					unsigned int noz,
-					double* ac_samples,
+					float* ac_samples,
 					int* ac_sw,
 					int ac_ignore_it,
-					double* ac_sampWin,
-					double* autoCorrToCombSubMul)
+					float* ac_sampWin,
+					float* autoCorrToCombSubMul)
 {
 	//// output decoding
 	for (int i=0;i<2*ac_sw[noz]+1;i++)
@@ -93,12 +93,12 @@ void auto_correlate(double imgPreproc2DDFA,
 }
 void cross_correlate(int ac_ignore_it,
 					int* ac_sw,
-					double* ac_sampWin,
-					double* cc_coefs,
+					float* ac_sampWin,
+					float* cc_coefs,
 					unsigned int noz,
-					double* parallelCoeffs,
+					float* parallelCoeffs,
 					unsigned int sn,
-					double* xCorrToCombSubMul)
+					float* xCorrToCombSubMul)
 {
 	//// output decoding
 	for (int b = -ac_sw[noz]; b < ac_sw[noz]; b++)
@@ -111,44 +111,43 @@ void cross_correlate(int ac_ignore_it,
 		}
 //	free(cc_coeffWin);
 	//// next state
-	double* cc_temp = parallelCoeffs + sn * N * BUFFER_SIZE
+	float* cc_temp = parallelCoeffs + sn * N * BUFFER_SIZE
 			+ noz * BUFFER_SIZE;
 	if (*cc_temp != -1)
 		for (int i=0;i<BUFFER_SIZE;i++)
 				cc_coefs[noz*(BUFFER_SIZE+1)+i] = cc_temp[i];
 }
 
-void submul(double* combSubMulToCombAvgSub,
-			double* xCorrToCombSubMul,
-			double* autoCorrToCombSubMul,
+void submul(float* combSubMulToCombAvgSub,
+			float* xCorrToCombSubMul,
+			float* autoCorrToCombSubMul,
 			unsigned int win_size)
 {
 	for (int i = 0; i < win_size; i++)
 		combSubMulToCombAvgSub[i] = (xCorrToCombSubMul[i]
 				- autoCorrToCombSubMul[i]) / autoCorrToCombSubMul[i];
 }
-void avgsub(double* combSubMulToCombAvgSub,
-			double* combAvgSubtoOutBlock,
+void avgsub(float* combSubMulToCombAvgSub,
+			float* combAvgSubtoOutBlock,
 			unsigned int win_size)
 {
-	double as_average = 0;
+	float as_average = 0;
 	for (int i = 0; i < win_size; i++)
 		as_average += combSubMulToCombAvgSub[i];
 	as_average /= win_size;
 	for (int i = 0; i < win_size; i++)
 		combAvgSubtoOutBlock[i] = combSubMulToCombAvgSub[i] - as_average;
 }
-void out_block(double* reference,
+void out_block(float* reference,
 				unsigned int sn,
 				unsigned int noz,
-				double* out_buffer,
-				double* combAvgSubtoOutBlock,
+				float* out_buffer,
+				float* combAvgSubtoOutBlock,
 				unsigned int win_size)
 {
 	// output
 	/// output decoding
 	reference[sn * N + noz] = out_buffer[noz*(BUFFER_SIZE+1)];
-	printf("%f ", out_buffer[noz*(BUFFER_SIZE+1)]);
 	/// next state
 	for (int i=0;i<BUFFER_SIZE;i++)
 			out_buffer[noz*(BUFFER_SIZE+1)+i] = out_buffer[noz*(BUFFER_SIZE+1)+(i+1)];
@@ -164,10 +163,10 @@ void out_block(double* reference,
 	}
 }
 
-void computeGold(double* reference,
-				double* input_image,
+void computeGold(float* reference,
+				float* input_image,
 				aoi* aoi_coordinates,
-				double* parallelCoeffs,
+				float* parallelCoeffs,
 				int* parallelSW,
 				unsigned int image_height,
 				unsigned int image_width)
@@ -176,15 +175,15 @@ void computeGold(double* reference,
 	// state variables
 	/// thread allocator
 	aoi* thread_state = (aoi*)calloc(num_threads,sizeof(aoi));
-	double* image_parts = (double*)malloc(image_width*sizeof(double));
+	float* image_parts = (float*)malloc(image_width*sizeof(float));
 	/// image preprocessor
 	/// auto correlation
-	double* ac_samples = (double*)calloc(num_threads * (BUFFER_SIZE + 1), sizeof(double));
+	float* ac_samples = (float*)calloc(num_threads * (BUFFER_SIZE + 1), sizeof(float));
 	int* ac_sw = (int*)calloc(num_threads,sizeof(int));
 	/// cross correlation
-	double* cc_coefs = (double*)calloc(num_threads * (BUFFER_SIZE + 1), sizeof(double));
+	float* cc_coefs = (float*)calloc(num_threads * (BUFFER_SIZE + 1), sizeof(float));
 	/// output block
-	double* out_buffer = (double*)calloc(num_threads * (BUFFER_SIZE + 1), sizeof(double));
+	float* out_buffer = (float*)calloc(num_threads * (BUFFER_SIZE + 1), sizeof(float));
 
 	// computation
 	for (unsigned int sn=0;sn<image_height;sn++) {
@@ -195,38 +194,37 @@ void computeGold(double* reference,
 		for (unsigned int noz=0;noz<num_threads;noz++)
 		{
 			// pre-process image: inv and reduce
-			double imgPreproc2DDFA;
+			float imgPreproc2DDFA;
 			imgPreproc2DDFA = preproc_image(image_parts, image_width, noz);
 
 			// single DDFA
 			/// auto correlation
-			double autoCorrToCombSubMul[BUFFER_SIZE];
-			memset(autoCorrToCombSubMul, 0, BUFFER_SIZE*sizeof(double));
+			float autoCorrToCombSubMul[BUFFER_SIZE];
+			memset(autoCorrToCombSubMul, 0, BUFFER_SIZE*sizeof(float));
 			int ac_ignore_it = BUFFER_SIZE / 2 - ac_sw[noz];
-			double ac_sampWin[(BUFFER_SIZE*2+1)];
-			memset(ac_sampWin, 0, (BUFFER_SIZE*2+1)*sizeof(double));
+			float ac_sampWin[(BUFFER_SIZE*2+1)];
+			memset(ac_sampWin, 0, (BUFFER_SIZE*2+1)*sizeof(float));
 			auto_correlate(imgPreproc2DDFA, parallelSW, sn, noz, ac_samples, ac_sw, ac_ignore_it, ac_sampWin, autoCorrToCombSubMul);
 
 			/// cross correlation
 			/// note: we use the ac_samples, ac_ignore_it, ac_sampWin and ac_sw from the auto correlation stage
-			double xCorrToCombSubMul[BUFFER_SIZE];
-			memset(xCorrToCombSubMul, 0, BUFFER_SIZE*sizeof(double));
+			float xCorrToCombSubMul[BUFFER_SIZE];
+			memset(xCorrToCombSubMul, 0, BUFFER_SIZE*sizeof(float));
 			//// output decoding
 			cross_correlate(ac_ignore_it, ac_sw, ac_sampWin, cc_coefs, noz, parallelCoeffs, sn, xCorrToCombSubMul);
 
 			// subtract and multiply ((x-y)/y)
-			double combSubMulToCombAvgSub[BUFFER_SIZE];
+			float combSubMulToCombAvgSub[BUFFER_SIZE];
 			submul(combSubMulToCombAvgSub, xCorrToCombSubMul, autoCorrToCombSubMul, ac_sw[noz] * 2);
 
 			// average and subtract
-			double combAvgSubtoOutBlock[BUFFER_SIZE];
+			float combAvgSubtoOutBlock[BUFFER_SIZE];
 			avgsub(combSubMulToCombAvgSub, combAvgSubtoOutBlock, ac_sw[noz] * 2);
 
 			// output
 			/// output decoding
 			out_block(reference, sn, noz, out_buffer, combAvgSubtoOutBlock, ac_sw[noz] * 2);
 		}
-		printf("\n");
 	}
 	free(thread_state);
 	free(image_parts);

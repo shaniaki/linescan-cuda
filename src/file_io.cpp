@@ -17,19 +17,19 @@
 ////////////////////////////////////////////////////////////////////////////////
 // export C interface
 extern "C"
-double* readTiff(char* filename, unsigned int* w, unsigned int* h);
+float* readTiff(char* filename, unsigned int* w, unsigned int* h);
 
 extern "C"
 aoi* readAOIs(char* filename, unsigned int image_height, unsigned int num_threads);
 
 extern "C"
-double* readCoefs(char* filename, unsigned int image_height, unsigned int num_threads, unsigned int coefs_size);
+float* readCoefs(char* filename, unsigned int image_height, unsigned int num_threads, unsigned int coefs_size);
 
 extern "C"
 int* readSWs(char* filename, unsigned int image_height, unsigned int num_threads);
 
 /*
-std::vector<std::vector<double> > readTiff(char* filename) {
+std::vector<std::vector<float> > readTiff(char* filename) {
 	// read the input from the TIFF
 	printf("Opening the input file: %s\n", filename);
 	uint32 imagelength;
@@ -40,10 +40,10 @@ std::vector<std::vector<double> > readTiff(char* filename) {
 		printf("The Tiff image could not be opened. File name: %s\n", filename);
 
 	tsize_t lineSize = TIFFScanlineSize(tif);
-	std::vector < std::vector<double> > inputVector;
+	std::vector < std::vector<float> > inputVector;
 	tdata_t buf = _TIFFmalloc(TIFFScanlineSize(tif));
 	for (uint32 row = 0; row < imagelength; row++) {
-		std::vector < double > rowVector;
+		std::vector < float > rowVector;
 		TIFFReadScanline(tif, buf, row);
 		unsigned char* smartBuf = (unsigned char*) (buf);
 		for (tsize_t rowPos = 0; rowPos < lineSize; rowPos++)
@@ -56,7 +56,7 @@ std::vector<std::vector<double> > readTiff(char* filename) {
 }
 */
 
-double* readTiff(char* filename, unsigned int* w, unsigned int* h) {
+float* readTiff(char* filename, unsigned int* w, unsigned int* h) {
 	// read the input from the TIFF
 	printf("Opening the input file: %s\n", filename);
 	TIFF* tif = TIFFOpen(filename, "r");
@@ -66,11 +66,11 @@ double* readTiff(char* filename, unsigned int* w, unsigned int* h) {
 		printf("The Tiff image could not be opened. File name: %s\n", filename);
 
 	*w = TIFFScanlineSize(tif);
-	double* image;
-	image = (double*)malloc(*w * *h * sizeof(double));
+	float* image;
+	image = (float*)malloc(*w * *h * sizeof(float));
 	tdata_t buf = _TIFFmalloc(TIFFScanlineSize(tif));
 	for (uint32 row = 0; row < *h; row++) {
-		double* rowVector = image + row * *w;
+		float* rowVector = image + row * *w;
 		TIFFReadScanline(tif, buf, row);
 		unsigned char* smartBuf = (unsigned char*) (buf);
 		for (tsize_t rowPos = 0; rowPos < *w; rowPos++)
@@ -193,19 +193,19 @@ aoi* readAOIs(char* filename, unsigned int image_height, unsigned int num_thread
 }
 
 /*
-std::vector<std::vector<std::vector<double> > > readCoefs(char* filename) {
+std::vector<std::vector<std::vector<float> > > readCoefs(char* filename) {
 	// read the coefficients
 	printf("Opening the coefficients file: %s\n", filename);
 	std::ifstream coefFile(filename);
 	if (!coefFile.is_open())
 		printf("The coefficients file could not be opened. File name: %s\n", filename);
 
-	std::vector<std::vector<std::vector<double> > > result;
+	std::vector<std::vector<std::vector<float> > > result;
 	char line[256]; // FIXME: calculate this!
 	while (coefFile.getline(line,256) > 0) {
 
-		std::vector<std::vector<double> > lineVector;
-		std::vector<double> subVector;
+		std::vector<std::vector<float> > lineVector;
+		std::vector<float> subVector;
 
 		std::string element;
 		std::stringstream ss(line);
@@ -217,9 +217,9 @@ std::vector<std::vector<std::vector<double> > > readCoefs(char* filename) {
 					subVector.clear();
 				}
 			} else if (element == "$") {
-				lineVector.push_back(std::vector<double>());
+				lineVector.push_back(std::vector<float>());
 			} else {
-				double result;
+				float result;
 				std::stringstream ss_tmp(element);
 				ss_tmp >> result;
 				subVector.push_back(result);
@@ -233,19 +233,19 @@ std::vector<std::vector<std::vector<double> > > readCoefs(char* filename) {
 }
 */
 
-double* readCoefs(char* filename, unsigned int image_height, unsigned int num_threads, unsigned int coefs_size) {
+float* readCoefs(char* filename, unsigned int image_height, unsigned int num_threads, unsigned int coefs_size) {
 	// read the coefficients
 	printf("Opening the coefficients file: %s\n", filename);
 	std::ifstream coefFile(filename);
 	if (!coefFile.is_open())
 		printf("The coefficients file could not be opened. File name: %s\n", filename);
 
-	double* result = (double*)malloc(image_height * num_threads * coefs_size * sizeof(double));
+	float* result = (float*)malloc(image_height * num_threads * coefs_size * sizeof(float));
 	char *line = (char*)malloc(num_threads * coefs_size * 4 + 2);
 	unsigned int line_number = 0;
 	while (coefFile.getline(line,num_threads * coefs_size * 4 + 2) > 0) {
 
-		double* lineVector = result + line_number * num_threads * coefs_size;
+		float* lineVector = result + line_number * num_threads * coefs_size;
 		bool emptyCoefs = true;
 
 		std::string element;
@@ -260,7 +260,7 @@ double* readCoefs(char* filename, unsigned int image_height, unsigned int num_th
 				*lineVector = -1;
 				lineVector += coefs_size;
 			} else {
-				double value;
+				float value;
 				std::stringstream ss_tmp(element);
 				ss_tmp >> value;
 				*lineVector = value;

@@ -36,32 +36,32 @@
 void runTest(int argc, char **argv);
 
 extern "C"
-double* readTiff(char* filename, unsigned int* w, unsigned int* h);
+float* readTiff(char* filename, unsigned int* w, unsigned int* h);
 
 extern "C"
 aoi* readAOIs(char* filename, unsigned int image_height, unsigned int num_threads);
 
 extern "C"
-double* readCoefs(char* filename, unsigned int image_height, unsigned int num_threads, unsigned int coefs_size);
+float* readCoefs(char* filename, unsigned int image_height, unsigned int num_threads, unsigned int coefs_size);
 
 extern "C"
 int* readSWs(char* filename, unsigned int image_height, unsigned int num_threads);
 
 
 extern "C"
-void computeGold(double* reference,
-				double* h_image_input,
+void computeGold(float* reference,
+				float* h_image_input,
 				aoi* h_aoi_input,
-				double* h_coeff_input,
+				float* h_coeff_input,
 				int* h_sw_input,
 				unsigned int image_height,
 				unsigned int image_width);
 
 extern "C"
-void computeNaive(double* reference,
-				double* input_image,
+void computeNaive(float* reference,
+				float* input_image,
 				aoi* aoi_coordinates,
-				double* parallelCoeffs,
+				float* parallelCoeffs,
 				int* parallelSW,
 				unsigned int image_height,
 				unsigned int image_width);
@@ -120,11 +120,11 @@ runTest(int argc, char **argv)
     int devID = findCudaDevice(argc, (const char **) (argv));
 
     unsigned int num_threads = N;
-    double* h_coeff_input;
-    double* h_image_input;
+    float* h_coeff_input;
+    float* h_image_input;
     int* h_sw_input;
     aoi* h_aoi_input;
-    double* reference;
+    float *reference, *d_reference;
     unsigned int image_width, image_height;
 
     // read the input from the TIFF sizeof(aois) = inp_rows*image_row_width
@@ -139,11 +139,13 @@ runTest(int argc, char **argv)
 	// read the SWs from the file sizeof(sw) = inp_rows*num_threads
 	h_sw_input = readSWs("inputs/sws.txt", image_height, num_threads);
 
-	/*StopWatchInterface* timer = 0;
+	d_reference = (float*)malloc(image_height*num_threads*sizeof(float));
+
+	StopWatchInterface* timer = 0;
 	sdkCreateTimer(&timer);
 	sdkStartTimer(&timer);
 
-	// initialize the memory
+	/*// initialize the memory
 	for (unsigned int i = 0; i < mem_size; ++i) {
 		h_idata[i] = (float) (i);
 	}
@@ -168,40 +170,34 @@ runTest(int argc, char **argv)
 	// copy result from device to host
 	checkCudaErrors(
 			cudaMemcpy(h_odata, d_odata, sizeof(float) * num_threads,
-					cudaMemcpyDeviceToHost));
+					cudaMemcpyDeviceToHost));*/
+
+	computeNaive(d_reference, h_image_input, h_aoi_input, h_coeff_input, h_sw_input, image_height, image_width);
+
 	sdkStopTimer(&timer);
 	printf("Processing time: %f (ms)\n", sdkGetTimerValue(&timer));
-	sdkDeleteTimer(&timer);*/
+	sdkDeleteTimer(&timer);
 
 	// compute reference solution
-	reference = (double*)malloc(image_height*num_threads*sizeof(double));
+	reference = (float*)malloc(image_height*num_threads*sizeof(float));
 	computeGold(reference, h_image_input, h_aoi_input, h_coeff_input, h_sw_input, image_height, image_width);
-	/*
+
 	// check result
-	if (checkCmdLineFlag(argc, (const char**) (argv), "regression"))
-    {
-        // write file for regression test
-        sdkWriteFile("./data/regression.dat", h_odata, num_threads, 0.0f, false);
-    }
-    else
-    {
-        // custom output handling when no regression test running
-        // in this case check if the result is equivalent to the expected soluion
-        bTestResult = compareData(reference, h_odata, num_threads, 0.0f, 0.0f);
-    }
-    */
+	for (int i=0;i<image_height;i++)
+	{
+		for (int j=0;j<N;j++)
+			//printf("%f,%f    ", reference[i*N+j], d_reference[i*N+j]);
+			printf("%f ", reference[i*N+j]);
+		printf("\n");
+	}
 
     // cleanup memory
     free(h_image_input);
 	free(h_aoi_input);
 	free(h_coeff_input);
 	free(h_sw_input);
-	/*
-    free(h_idata);
-    free(h_odata);
-    free(reference);
-    checkCudaErrors(cudaFree(d_idata));
-    checkCudaErrors(cudaFree(d_odata));*/
+	free(reference);
+	free(d_reference);
 
     cudaDeviceReset();
     exit(bTestResult ? EXIT_SUCCESS : EXIT_FAILURE);
