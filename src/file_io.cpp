@@ -16,16 +16,16 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 // export C interface
-//extern "C"
+extern "C"
 double* readTiff(char* filename, unsigned int* w, unsigned int* h);
 
-//extern "C"
+extern "C"
 aoi* readAOIs(char* filename, unsigned int image_height, unsigned int num_threads);
 
-//extern "C"
+extern "C"
 double* readCoefs(char* filename, unsigned int image_height, unsigned int num_threads, unsigned int coefs_size);
 
-//extern "C"
+extern "C"
 int* readSWs(char* filename, unsigned int image_height, unsigned int num_threads);
 
 /*

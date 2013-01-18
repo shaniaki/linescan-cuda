@@ -14,11 +14,9 @@
 
 #include "globals.hpp"
 
-using namespace std;
-
 ////////////////////////////////////////////////////////////////////////////////
 // export C interface
-//extern "C"
+extern "C"
 void computeGold(double* reference,
 				double* input_image,
 				aoi* aoi_coordinates,
@@ -113,6 +111,7 @@ void cross_correlate(int ac_ignore_it,
 				xCorrToCombSubMul[ac_sw[noz] * 2 - k - 1] += ac_sampWin[c]
 						* cc_coeffWin[d];
 		}
+	free(cc_coeffWin);
 	//// next state
 	double* cc_temp = parallelCoeffs + sn * N * BUFFER_SIZE
 			+ noz * BUFFER_SIZE;

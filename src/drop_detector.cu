@@ -21,8 +21,6 @@
 #include <string.h>
 #include <math.h>
 
-#include <vector>
-
 // includes CUDA
 #include <cuda_runtime.h>
 
@@ -37,25 +35,34 @@
 // declaration, forward
 void runTest(int argc, char **argv);
 
-//extern "C"
+extern "C"
 double* readTiff(char* filename, unsigned int* w, unsigned int* h);
 
-//extern "C"
+extern "C"
 aoi* readAOIs(char* filename, unsigned int image_height, unsigned int num_threads);
 
-//extern "C"
+extern "C"
 double* readCoefs(char* filename, unsigned int image_height, unsigned int num_threads, unsigned int coefs_size);
 
-//extern "C"
+extern "C"
 int* readSWs(char* filename, unsigned int image_height, unsigned int num_threads);
 
 
-//extern "C"
+extern "C"
 void computeGold(double* reference,
 				double* h_image_input,
 				aoi* h_aoi_input,
 				double* h_coeff_input,
 				int* h_sw_input,
+				unsigned int image_height,
+				unsigned int image_width);
+
+extern "C"
+void computeNaive(double* reference,
+				double* input_image,
+				aoi* aoi_coordinates,
+				double* parallelCoeffs,
+				int* parallelSW,
 				unsigned int image_height,
 				unsigned int image_width);
 
