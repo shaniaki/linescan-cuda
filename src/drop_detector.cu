@@ -58,7 +58,7 @@ void computeGold(float* reference,
 				unsigned int image_width);
 
 extern "C"
-void computeNaive(float* reference,
+void compute_v1(float* reference,
 				float* input_image,
 				aoi* aoi_coordinates,
 				float* parallelCoeffs,
@@ -172,7 +172,7 @@ runTest(int argc, char **argv)
 			cudaMemcpy(h_odata, d_odata, sizeof(float) * num_threads,
 					cudaMemcpyDeviceToHost));*/
 
-	computeNaive(d_reference, h_image_input, h_aoi_input, h_coeff_input, h_sw_input, image_height, image_width);
+	compute_v1(d_reference, h_image_input, h_aoi_input, h_coeff_input, h_sw_input, image_height, image_width);
 
 	sdkStopTimer(&timer);
 	printf("Processing time: %f (ms)\n", sdkGetTimerValue(&timer));
@@ -186,8 +186,11 @@ runTest(int argc, char **argv)
 	for (int i=0;i<image_height;i++)
 	{
 		for (int j=0;j<N;j++)
-			//printf("%f,%f    ", reference[i*N+j], d_reference[i*N+j]);
-			printf("%f ", reference[i*N+j]);
+		{
+			if (abs(reference[i*N+j] - d_reference[i*N+j]) > 0.0001)
+				printf("Error at image line %d for nozzle %d: reference=%f, calculated=%f\n", i, j, reference[i*N+j], d_reference[i*N+j]);
+			printf("%f ",d_reference[i*N+j]);
+		}
 		printf("\n");
 	}
 

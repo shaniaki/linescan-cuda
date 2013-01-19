@@ -17,7 +17,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 // export the callable function
 extern "C"
-void computeNaive(float* reference,
+void compute_v1(float* reference,
 				float* input_image,
 				aoi* aoi_coordinates,
 				float* parallelCoeffs,
@@ -26,7 +26,7 @@ void computeNaive(float* reference,
 				unsigned int image_width);
 
 __device__
-void thread_allocatorNaive(float* input_image,
+void thread_allocator_v1(float* input_image,
 						aoi* aoi_coordinates,
 						unsigned int image_width,
 						unsigned int sn,
@@ -50,7 +50,7 @@ void thread_allocatorNaive(float* input_image,
 }
 
 __device__
-float preproc_imageNaive(float* image_parts, unsigned int image_width)
+float preproc_image_v1(float* image_parts, unsigned int image_width)
 {
 	unsigned int noz = blockIdx.x;
 	float imgPreproc2DDFA = 0;
@@ -63,7 +63,7 @@ float preproc_imageNaive(float* image_parts, unsigned int image_width)
 }
 
 __device__
-void auto_correlateNaive(float imgPreproc2DDFA,
+void auto_correlate_v1(float imgPreproc2DDFA,
 						int* parallelSW,
 						unsigned int sn,
 						float* ac_samples,
@@ -95,7 +95,7 @@ void auto_correlateNaive(float imgPreproc2DDFA,
 }
 
 __device__
-void cross_correlateNaive(int ac_ignore_it,
+void cross_correlate_v1(int ac_ignore_it,
 						int* ac_sw,
 						float* ac_sampWin,
 						float* cc_coefs,
@@ -122,21 +122,22 @@ void cross_correlateNaive(int ac_ignore_it,
 }
 
 __device__
-void submulNaive(float* combSubMulToCombAvgSub,
+void submul_v1(float* combSubMulToCombAvgSub,
 			float* xCorrToCombSubMul,
 			float* autoCorrToCombSubMul,
 			unsigned int win_size)
 {
 	for (int i = 0; i < win_size; i++)
 		combSubMulToCombAvgSub[i] = (xCorrToCombSubMul[i]
-				- autoCorrToCombSubMul[i]) / autoCorrToCombSubMul[i];
+		                           - autoCorrToCombSubMul[i]) / autoCorrToCombSubMul[i];
 }
 
 __device__
-void avgsubNaive(float* combSubMulToCombAvgSub,
+void avgsub_v1(float* combSubMulToCombAvgSub,
 			float* combAvgSubtoOutBlock,
 			unsigned int win_size)
 {
+	__syncthreads();
 	float as_average = 0;
 	for (int i = 0; i < win_size; i++)
 		as_average += combSubMulToCombAvgSub[i];
@@ -146,7 +147,7 @@ void avgsubNaive(float* combSubMulToCombAvgSub,
 }
 
 __device__
-void out_blockNaive(float* reference,
+void out_block_v1(float* reference,
 					unsigned int sn,
 					float* out_buffer,
 					float* combAvgSubtoOutBlock,
@@ -173,7 +174,7 @@ void out_blockNaive(float* reference,
 }
 
 __global__
-void computeNozzlesNaive(float* reference,
+void computeNozzles_v1(float* reference,
 						float* input_image,
 						aoi* aoi_coordinates,
 						float* parallelCoeffs,
@@ -191,13 +192,13 @@ void computeNozzlesNaive(float* reference,
 	for (unsigned int sn=0;sn<image_height;sn++)
 	{
 		// thread allocator
-		thread_allocatorNaive(input_image, aoi_coordinates, image_width, sn, thread_state, image_parts);
+		thread_allocator_v1(input_image, aoi_coordinates, image_width, sn, thread_state, image_parts);
 
 		// for all cuda blocks (nozzles):
 		unsigned int noz = blockIdx.x;
 		// pre-process image: inv and reduce
 		float imgPreproc2DDFA;
-		imgPreproc2DDFA = preproc_imageNaive(image_parts, image_width);
+		imgPreproc2DDFA = preproc_image_v1(image_parts, image_width);
 
 		// single DDFA
 		/// auto correlation
@@ -206,30 +207,30 @@ void computeNozzlesNaive(float* reference,
 		int ac_ignore_it = BUFFER_SIZE / 2 - ac_sw[noz];
 		float ac_sampWin[(BUFFER_SIZE*2+1)];
 		memset(ac_sampWin, 0, (BUFFER_SIZE*2+1)*sizeof(float));
-		auto_correlateNaive(imgPreproc2DDFA, parallelSW, sn, ac_samples, ac_sw, ac_ignore_it, ac_sampWin, autoCorrToCombSubMul);
+		auto_correlate_v1(imgPreproc2DDFA, parallelSW, sn, ac_samples, ac_sw, ac_ignore_it, ac_sampWin, autoCorrToCombSubMul);
 
 		/// cross correlation
 		/// note: we use the ac_samples, ac_ignore_it, ac_sampWin and ac_sw from the auto correlation stage
 		float xCorrToCombSubMul[BUFFER_SIZE];
 		memset(xCorrToCombSubMul, 0, BUFFER_SIZE*sizeof(float));
 		//// output decoding
-		cross_correlateNaive(ac_ignore_it, ac_sw, ac_sampWin, cc_coefs, parallelCoeffs, sn, xCorrToCombSubMul);
+		cross_correlate_v1(ac_ignore_it, ac_sw, ac_sampWin, cc_coefs, parallelCoeffs, sn, xCorrToCombSubMul);
 
 		// subtract and multiply ((x-y)/y)
 		float combSubMulToCombAvgSub[BUFFER_SIZE];
-		submulNaive(combSubMulToCombAvgSub, xCorrToCombSubMul, autoCorrToCombSubMul, ac_sw[noz] * 2);
+		submul_v1(combSubMulToCombAvgSub, xCorrToCombSubMul, autoCorrToCombSubMul, ac_sw[noz] * 2);
 
 		// average and subtract
 		float combAvgSubtoOutBlock[BUFFER_SIZE];
-		avgsubNaive(combSubMulToCombAvgSub, combAvgSubtoOutBlock, ac_sw[noz] * 2);
+		avgsub_v1(combSubMulToCombAvgSub, combAvgSubtoOutBlock, ac_sw[noz] * 2);
 
 		// output
 		/// output decoding
-		out_blockNaive(reference, sn, out_buffer, combAvgSubtoOutBlock, ac_sw[noz] * 2);
+		out_block_v1(reference, sn, out_buffer, combAvgSubtoOutBlock, ac_sw[noz] * 2);
 	}
 }
 
-void computeNaive(float* reference,
+void compute_v1(float* reference,
 				float* input_image,
 				aoi* aoi_coordinates,
 				float* parallelCoeffs,
@@ -283,7 +284,7 @@ void computeNaive(float* reference,
 
 	// computation
 
-	computeNozzlesNaive<<<N,1>>>(d_reference, d_input_image, d_aoi_coordinates,
+	computeNozzles_v1<<<N,1>>>(d_reference, d_input_image, d_aoi_coordinates,
 								d_parallelCoeffs, d_parallelSW, image_height, image_width,
 								thread_state, image_parts, ac_sw, ac_samples,
 								cc_coefs, out_buffer);
