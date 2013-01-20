@@ -3,3 +3,4 @@ The parallel version of the drop detector part of the linescan application by CU
 drop_detector_cpu.cpp           the reference serial implementation
 drop_detector_v1.cu             each nozzle associated with a CUDA block
 drop_detector_v2.cu             each nozzle associated with a CUDA block and CUDA threads parallelize operations within each blocks
+drop_detector_v3.cu             parallel version of v2 plus use of shared memory when possible
