@@ -66,6 +66,15 @@ void compute_v1(float* reference,
 				unsigned int image_height,
 				unsigned int image_width);
 
+extern "C"
+void compute_v2(float* reference,
+				float* input_image,
+				aoi* aoi_coordinates,
+				float* parallelCoeffs,
+				int* parallelSW,
+				unsigned int image_height,
+				unsigned int image_width);
+
 /*
 ////////////////////////////////////////////////////////////////////////////////
 //! Simple test kernel for device functionality
@@ -172,7 +181,7 @@ runTest(int argc, char **argv)
 			cudaMemcpy(h_odata, d_odata, sizeof(float) * num_threads,
 					cudaMemcpyDeviceToHost));*/
 
-	compute_v1(d_reference, h_image_input, h_aoi_input, h_coeff_input, h_sw_input, image_height, image_width);
+	compute_v2(d_reference, h_image_input, h_aoi_input, h_coeff_input, h_sw_input, image_height, image_width);
 
 	sdkStopTimer(&timer);
 	printf("Processing time: %f (ms)\n", sdkGetTimerValue(&timer));
