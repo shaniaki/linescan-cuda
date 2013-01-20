@@ -137,7 +137,6 @@ void avgsub_v1(float* combSubMulToCombAvgSub,
 			float* combAvgSubtoOutBlock,
 			unsigned int win_size)
 {
-	__syncthreads();
 	float as_average = 0;
 	for (int i = 0; i < win_size; i++)
 		as_average += combSubMulToCombAvgSub[i];
@@ -228,6 +227,7 @@ void computeNozzles_v1(float* reference,
 		/// output decoding
 		out_block_v1(reference, sn, out_buffer, combAvgSubtoOutBlock, ac_sw[noz] * 2);
 	}
+	__syncthreads();
 }
 
 void compute_v1(float* reference,

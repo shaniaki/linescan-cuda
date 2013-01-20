@@ -250,6 +250,7 @@ void computeNozzles_v2(float* reference,
 		/// output decoding
 		out_block_v2(reference, sn, out_buffer, combAvgSubtoOutBlock, ac_sw[noz] * 2);
 	}
+	__syncthreads();
 }
 
 void compute_v2(float* reference,
