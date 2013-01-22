@@ -20,13 +20,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
-
-// includes CUDA
-#include <cuda_runtime.h>
-
-// includes, project
-#include <helper_cuda.h>
-#include <helper_functions.h> // helper functions for SDK examples
+#include <sys/time.h>
 
 #include "globals.hpp"
 
@@ -135,7 +129,7 @@ runTest(int argc, char **argv)
     printf("%s Starting...\n\n", argv[0]);
 
     // use command-line specified CUDA device, otherwise use device with highest Gflops/s
-    int devID = findCudaDevice(argc, (const char **) (argv));
+    //int devID = findCudaDevice(argc, (const char **) (argv));
 
     unsigned int num_threads = N;
     float* h_coeff_input;
@@ -167,42 +161,16 @@ runTest(int argc, char **argv)
 
 	d_reference = (float*)malloc(image_height*num_threads*sizeof(float));
 
-	StopWatchInterface* timer = 0;
-	sdkCreateTimer(&timer);
-	sdkStartTimer(&timer);
-
-	/*// initialize the memory
-	for (unsigned int i = 0; i < mem_size; ++i) {
-		h_idata[i] = (float) (i);
-	}
-	// allocate device memory
-	float* d_idata;
-	checkCudaErrors(cudaMalloc((void **) &d_idata, mem_size));
-	// copy host memory to device
-	checkCudaErrors(
-			cudaMemcpy(d_idata, h_idata, mem_size, cudaMemcpyHostToDevice));
-	// allocate device memory for result
-	float* d_odata;
-	checkCudaErrors(cudaMalloc((void **) &d_odata, mem_size));
-	// setup execution parameters
-	dim3 grid(1, 1, 1);
-	dim3 threads(num_threads, 1, 1);
-	// execute the kernel
-	testKernel<<<grid, threads, mem_size>>>(d_idata, d_odata);
-	// check if kernel execution generated and error
-	getLastCudaError("Kernel execution failed");
-	// allocate mem for the result on host side
-	float* h_odata = (float*) (malloc(mem_size));
-	// copy result from device to host
-	checkCudaErrors(
-			cudaMemcpy(h_odata, d_odata, sizeof(float) * num_threads,
-					cudaMemcpyDeviceToHost));*/
+	struct timeval timerStart;
+	gettimeofday(&timerStart, NULL);
 
 	compute_v2(d_reference, h_image_input, h_aoi_input, h_coeff_input, h_sw_input, image_height, image_width);
 
-	sdkStopTimer(&timer);
-	printf("Processing time: %f (ms)\n", sdkGetTimerValue(&timer));
-	sdkDeleteTimer(&timer);
+	struct timeval timerStop, timerElapsed;
+	gettimeofday(&timerStop, NULL);
+	timersub(&timerStop, &timerStart, &timerElapsed);
+	double kernel_time = timerElapsed.tv_sec*1000.0+timerElapsed.tv_usec/1000.0;
+	printf("Processing time: %f (ms)\n", kernel_time);
 
 	// compute reference solution
 	reference = (float*)malloc(image_height*num_threads*sizeof(float));
