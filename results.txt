@@ -1,5 +1,5 @@
 On the Mac machine:
 short dataset:
 v1 : 5840 ms
-v2 : 540 ms
-v3 : 350 ms 
+v2 : 470 ms
+v3 : 212 ms 

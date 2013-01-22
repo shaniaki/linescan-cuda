@@ -75,8 +75,10 @@ void auto_correlate_v3(float imgPreproc2DDFA,
 	unsigned int noz = blockIdx.x;
 	unsigned int thx = threadIdx.x;
 	//// output decoding
-	for (int i=0;i<2*(*ac_sw)+1;i++)
-			ac_sampWin[i] = ac_samples[ac_ignore_it + i];
+	if (thx<2*(*ac_sw))
+		ac_sampWin[thx] = ac_samples[ac_ignore_it + thx];
+	if (thx==0)
+		ac_sampWin[2*(*ac_sw)] = ac_samples[ac_ignore_it + 2*(*ac_sw)];
 	__syncthreads();
 	if (thx<2* (*ac_sw))
 		for (int c = 0; c <= (*ac_sw) * 2; c++) {
@@ -91,9 +93,14 @@ void auto_correlate_v3(float imgPreproc2DDFA,
 	if (ac_temp != -1)
 		(*ac_sw) = ac_temp;
 
-	for (int i=0;i<BUFFER_SIZE;i++)
-		ac_samples[i] = ac_samples[i+1];
-	ac_samples[BUFFER_SIZE] = imgPreproc2DDFA;
+	__shared__ float ac_samples_temp[BUFFER_SIZE];
+	if (thx<BUFFER_SIZE)
+		ac_samples_temp[thx] = ac_samples[thx+1];
+	__syncthreads();
+	if (thx<BUFFER_SIZE)
+		ac_samples[thx] = ac_samples_temp[thx];
+	if (thx==0)
+		ac_samples[BUFFER_SIZE] = imgPreproc2DDFA;
 }
 
 __device__
@@ -122,8 +129,8 @@ void cross_correlate_v3(int ac_ignore_it,
 	float* cc_temp = parallelCoeffs + sn * N * BUFFER_SIZE
 			+ noz * BUFFER_SIZE;
 	if (*cc_temp != -1)
-		for (int i=0;i<BUFFER_SIZE;i++)
-				cc_coefs[i] = cc_temp[i];
+		if (thx<BUFFER_SIZE)
+				cc_coefs[thx] = cc_temp[thx];
 }
 
 __device__
@@ -165,23 +172,27 @@ void out_block_v3(float* reference,
 					unsigned int win_size)
 {
 	unsigned int noz = blockIdx.x;
+	unsigned int thx = threadIdx.x;
 	// output
 	/// output decoding
 	reference[sn * N + noz] = out_buffer[0];
 	//printf("%f ", out_buffer[noz*(BUFFER_SIZE+1)]);
 	/// next state
-	for (int i=0;i<BUFFER_SIZE;i++)
-			out_buffer[i] = out_buffer[i+1];
+	__shared__ float out_buffer_temp[BUFFER_SIZE];
+	if (thx<BUFFER_SIZE)
+			out_buffer_temp[thx] = out_buffer[thx+1];
+	__syncthreads();
+	if (thx<BUFFER_SIZE)
+		out_buffer[thx] = out_buffer_temp[thx];
 	out_buffer[BUFFER_SIZE] = 0;
 	unsigned int out_ignore_it = (BUFFER_SIZE - win_size)
 			/ 2;
-	for (int i = 0; i < BUFFER_SIZE - (2 * out_ignore_it); i++) {
-		out_buffer[i + out_ignore_it] = out_buffer[i + out_ignore_it]
-				+ combAvgSubtoOutBlock[i];
-
-		//for (int i=0;i<out_buffer[noz].size();i++) printf("%f ", out_buffer[noz][i]); printf("\n");
-
-	}
+	if (thx < BUFFER_SIZE - (2 * out_ignore_it))
+		out_buffer_temp[thx + out_ignore_it] = out_buffer[thx + out_ignore_it]
+				+ combAvgSubtoOutBlock[thx];
+	__syncthreads();
+	if (thx < BUFFER_SIZE - (2 * out_ignore_it))
+		out_buffer[thx] = out_buffer_temp[thx];
 }
 
 __global__
@@ -207,12 +218,19 @@ void computeNozzles_v3(float* reference,
 	__shared__ float cc_coefs[BUFFER_SIZE + 1];
 	/// output block
 	__shared__ float out_buffer[BUFFER_SIZE + 1];
-
-	memset(&thread_state, 0, sizeof(aoi));
-	memset(ac_samples, 0, (BUFFER_SIZE + 1) * sizeof(float));
-	ac_sw = 0;
-	memset(cc_coefs, 0, (BUFFER_SIZE + 1) * sizeof(float));
-	memset(out_buffer, 0, (BUFFER_SIZE + 1) * sizeof(float));
+	//// initialization
+	if (thx==0)
+	{
+		thread_state.start = 0;
+		thread_state.end = 0;
+		ac_sw = 0;
+	}
+	if (thx<BUFFER_SIZE+1)
+	{
+		ac_samples[thx] = 0;
+		cc_coefs[thx] = 0;
+		out_buffer[thx] = 0;
+	}
 
 	// inter-block communication
 	__shared__ int ac_ignore_it;
@@ -234,21 +252,25 @@ void computeNozzles_v3(float* reference,
 
 		// single DDFA
 		/// auto correlation
+		if (thx<BUFFER_SIZE)
+		{
+			autoCorrToCombSubMul[thx] = 0;
+			ac_sampWin[thx] = 0;
+			ac_sampWin[BUFFER_SIZE+thx] = 0;
+		}
 		if (thx==0)
 		{
-			memset(autoCorrToCombSubMul, 0, BUFFER_SIZE*sizeof(float));
 			ac_ignore_it = BUFFER_SIZE / 2 - ac_sw;
-			memset(ac_sampWin, 0, (BUFFER_SIZE*2+1)*sizeof(float));
+			ac_sampWin[2*BUFFER_SIZE] = 0;
 		}
+
 		__syncthreads();
 		auto_correlate_v3(imgPreproc2DDFA, parallelSW, sn, ac_samples, &ac_sw, ac_ignore_it, ac_sampWin, autoCorrToCombSubMul);
 
 		/// cross correlation
 		/// note: we use the ac_samples, ac_ignore_it, ac_sampWin and ac_sw from the auto correlation stage
-		if (thx==0)
-		{
-			memset(xCorrToCombSubMul, 0, BUFFER_SIZE*sizeof(float));
-		}
+		if (thx<BUFFER_SIZE)
+			xCorrToCombSubMul[thx] = 0;
 		__syncthreads();
 		//// output decoding
 		cross_correlate_v3(ac_ignore_it, &ac_sw, ac_sampWin, cc_coefs, parallelCoeffs, sn, xCorrToCombSubMul);

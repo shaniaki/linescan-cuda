@@ -75,8 +75,10 @@ void auto_correlate_v2(float imgPreproc2DDFA,
 	unsigned int noz = blockIdx.x;
 	unsigned int thx = threadIdx.x;
 	//// output decoding
-	for (int i=0;i<2*ac_sw[noz]+1;i++)
-			ac_sampWin[i] = ac_samples[noz*(BUFFER_SIZE+1) + ac_ignore_it + i];
+	if (thx<2*(*ac_sw))
+		ac_sampWin[thx] = ac_samples[noz*(BUFFER_SIZE+1) + ac_ignore_it + thx];
+	if (thx==0)
+		ac_sampWin[2*(*ac_sw)] = ac_samples[noz*(BUFFER_SIZE+1) + ac_ignore_it + 2*(*ac_sw)];
 	__syncthreads();
 	if (thx<2*ac_sw[noz])
 		for (int c = 0; c <= ac_sw[noz] * 2; c++) {
@@ -122,8 +124,8 @@ void cross_correlate_v2(int ac_ignore_it,
 	float* cc_temp = parallelCoeffs + sn * N * BUFFER_SIZE
 			+ noz * BUFFER_SIZE;
 	if (*cc_temp != -1)
-		for (int i=0;i<BUFFER_SIZE;i++)
-				cc_coefs[noz*(BUFFER_SIZE+1)+i] = cc_temp[i];
+		if (thx<BUFFER_SIZE)
+			cc_coefs[noz*(BUFFER_SIZE+1) + thx] = cc_temp[thx];
 }
 
 __device__
@@ -221,21 +223,24 @@ void computeNozzles_v2(float* reference,
 
 		// single DDFA
 		/// auto correlation
+		if (thx<BUFFER_SIZE)
+		{
+			autoCorrToCombSubMul[thx] = 0;
+			ac_sampWin[thx] = 0;
+			ac_sampWin[BUFFER_SIZE+thx] = 0;
+		}
 		if (thx==0)
 		{
-			memset(autoCorrToCombSubMul, 0, BUFFER_SIZE*sizeof(float));
 			ac_ignore_it = BUFFER_SIZE / 2 - ac_sw[noz];
-			memset(ac_sampWin, 0, (BUFFER_SIZE*2+1)*sizeof(float));
+			ac_sampWin[2*BUFFER_SIZE] = 0;
 		}
 		__syncthreads();
 		auto_correlate_v2(imgPreproc2DDFA, parallelSW, sn, ac_samples, ac_sw, ac_ignore_it, ac_sampWin, autoCorrToCombSubMul);
 
 		/// cross correlation
 		/// note: we use the ac_samples, ac_ignore_it, ac_sampWin and ac_sw from the auto correlation stage
-		if (thx==0)
-		{
-			memset(xCorrToCombSubMul, 0, BUFFER_SIZE*sizeof(float));
-		}
+		if (thx<BUFFER_SIZE)
+			xCorrToCombSubMul[thx] = 0;
 		__syncthreads();
 		//// output decoding
 		cross_correlate_v2(ac_ignore_it, ac_sw, ac_sampWin, cc_coefs, parallelCoeffs, sn, xCorrToCombSubMul);
