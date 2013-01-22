@@ -141,22 +141,22 @@ runTest(int argc, char **argv)
 
     // read the input from the TIFF sizeof(aois) = inp_rows*image_row_width
     char input_name[20];
-    sprintf(input_name,"inputs/%d_input.tif",DATA_SET);
+    sprintf(input_name,"%s/%d_input.tif",argv[1],DATASET);
 	h_image_input = readTiff(input_name, &image_width, &image_height);
 
 	// read the AOIs from the file sizeof(aois) = inp_rows*num_threads
 	char aoi_name[20];
-	sprintf(aoi_name,"inputs/%d_aois.txt",DATA_SET);
+	sprintf(aoi_name,"%s/%d_aois.txt",argv[1],DATASET);
 	h_aoi_input = readAOIs(aoi_name, image_height, num_threads);
 
 	// read the coefs from the file sizeof(coefs) = inp_rows*num_threads*buffer_size
 	char coefs_name[20];
-	sprintf(coefs_name,"inputs/%d_coefs.txt",DATA_SET);
+	sprintf(coefs_name,"%s/%d_coefs.txt",argv[1],DATASET);
 	h_coeff_input = readCoefs(coefs_name, image_height, num_threads, BUFFER_SIZE);
 
 	// read the SWs from the file sizeof(sw) = inp_rows*num_threads
 	char sws_name[20];
-	sprintf(sws_name,"inputs/%d_sws.txt",DATA_SET);
+	sprintf(sws_name,"%s/%d_sws.txt",argv[1],DATASET);
 	h_sw_input = readSWs(sws_name, image_height, num_threads);
 
 	d_reference = (float*)malloc(image_height*num_threads*sizeof(float));
@@ -164,7 +164,7 @@ runTest(int argc, char **argv)
 	struct timeval timerStart;
 	gettimeofday(&timerStart, NULL);
 
-	compute_v2(d_reference, h_image_input, h_aoi_input, h_coeff_input, h_sw_input, image_height, image_width);
+	KERNELVER(d_reference, h_image_input, h_aoi_input, h_coeff_input, h_sw_input, image_height, image_width);
 
 	struct timeval timerStop, timerElapsed;
 	gettimeofday(&timerStop, NULL);
