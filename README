@@ -1,6 +1,23 @@
 The parallel version of the drop detector part of the linescan application by CUDA.
 
-drop_detector_cpu.cpp           the reference serial implementation
-drop_detector_v1.cu             each nozzle associated with a CUDA block
-drop_detector_v2.cu             each nozzle associated with a CUDA block and CUDA threads parallelize operations within each blocks
-drop_detector_v3.cu             parallel version of v2 plus use of shared memory when possible
+
+src/                           the source directory
+drop_detector.cu               the entry point and main file of the application
+drop_detector_cpu.cpp          the reference serial implementation
+drop_detector_v1.cu            each nozzle associated with a CUDA block
+drop_detector_v2.cu            each nozzle associated with a CUDA block and CUDA
+                               threads parallelize operations within each blocks
+drop_detector_v3.cu            parallel version of v2 plus use of shared memory
+                               when possible
+
+inputs/                        directory for the input files
+                               each input data set contains 4 files
+
+file_io.cpp                    functions for reading the inputs from the files
+globals.hpp                    global definitions
+results.txt                    contains examples of execution results
+README                         this file
+
+Notes:
+- For each data set, the macro definitions N and BUFFER_SIZE should be adjusted
+in the globals.hpp file accordingly.
