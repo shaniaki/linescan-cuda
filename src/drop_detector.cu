@@ -146,16 +146,24 @@ runTest(int argc, char **argv)
     unsigned int image_width, image_height;
 
     // read the input from the TIFF sizeof(aois) = inp_rows*image_row_width
-	h_image_input = readTiff("inputs/input.tif", &image_width, &image_height);
+    char input_name[20];
+    sprintf(input_name,"inputs/%d_input.tif",DATA_SET);
+	h_image_input = readTiff(input_name, &image_width, &image_height);
 
 	// read the AOIs from the file sizeof(aois) = inp_rows*num_threads
-	h_aoi_input = readAOIs("inputs/aois.txt", image_height, num_threads);
+	char aoi_name[20];
+	sprintf(aoi_name,"inputs/%d_aois.txt",DATA_SET);
+	h_aoi_input = readAOIs(aoi_name, image_height, num_threads);
 
 	// read the coefs from the file sizeof(coefs) = inp_rows*num_threads*buffer_size
-	h_coeff_input = readCoefs("inputs/coefs.txt", image_height, num_threads, BUFFER_SIZE);
+	char coefs_name[20];
+	sprintf(coefs_name,"inputs/%d_coefs.txt",DATA_SET);
+	h_coeff_input = readCoefs(coefs_name, image_height, num_threads, BUFFER_SIZE);
 
 	// read the SWs from the file sizeof(sw) = inp_rows*num_threads
-	h_sw_input = readSWs("inputs/sws.txt", image_height, num_threads);
+	char sws_name[20];
+	sprintf(sws_name,"inputs/%d_sws.txt",DATA_SET);
+	h_sw_input = readSWs(sws_name, image_height, num_threads);
 
 	d_reference = (float*)malloc(image_height*num_threads*sizeof(float));
 
@@ -190,7 +198,7 @@ runTest(int argc, char **argv)
 			cudaMemcpy(h_odata, d_odata, sizeof(float) * num_threads,
 					cudaMemcpyDeviceToHost));*/
 
-	compute_v3(d_reference, h_image_input, h_aoi_input, h_coeff_input, h_sw_input, image_height, image_width);
+	compute_v2(d_reference, h_image_input, h_aoi_input, h_coeff_input, h_sw_input, image_height, image_width);
 
 	sdkStopTimer(&timer);
 	printf("Processing time: %f (ms)\n", sdkGetTimerValue(&timer));

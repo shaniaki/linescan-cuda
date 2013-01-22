@@ -8,9 +8,16 @@
 #ifndef GLOBALS_HPP_
 #define GLOBALS_HPP_
 
+//#define DATA_SET 0
+//#define WHITE_VALUE 255
+//#define BUFFER_SIZE 24
+//#define N 4
+
+#define DATA_SET 1
 #define WHITE_VALUE 255
 #define BUFFER_SIZE 24
-#define N 4
+#define N 16
+
 
 struct aoi
 {
