@@ -11,6 +11,7 @@
 
 #include <cuda.h>
 #include <assert.h>
+#include <stdio.h>
 
 #include "globals.hpp"
 
@@ -317,6 +318,8 @@ void compute_v2(float* reference,
 										d_parallelCoeffs, d_parallelSW, image_height, image_width,
 										thread_state, image_parts, ac_sw, ac_samples,
 										cc_coefs, out_buffer);
+	if ( cudaSuccess != cudaGetLastError() )
+		printf( "Error in kernel call!\n" );
 
 	cudaMemcpy(reference, d_reference, N*image_height * sizeof(float), cudaMemcpyDeviceToHost);
 

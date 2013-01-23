@@ -11,6 +11,7 @@
 
 #include <cuda.h>
 #include <assert.h>
+#include <stdio.h>
 
 #include "globals.hpp"
 
@@ -192,7 +193,7 @@ void out_block_v3(float* reference,
 				+ combAvgSubtoOutBlock[thx];
 	__syncthreads();
 	if (thx < BUFFER_SIZE - (2 * out_ignore_it))
-		out_buffer[thx] = out_buffer_temp[thx];
+		out_buffer[thx+ out_ignore_it] = out_buffer_temp[thx+ out_ignore_it];
 }
 
 __global__
@@ -327,8 +328,10 @@ void compute_v3(float* reference,
 	computeNozzles_v3<<<N,cuda_threads>>>(d_reference, d_input_image, d_aoi_coordinates,
 										d_parallelCoeffs, d_parallelSW, image_height, image_width,
 										image_parts);
+	if ( cudaSuccess != cudaGetLastError() )
+		printf( "Error in kernel call!\n" );
 
-	cudaMemcpy(reference, d_reference, N*image_height * sizeof(float), cudaMemcpyDeviceToHost);
+	assert(cudaSuccess == cudaMemcpy(reference, d_reference, N*image_height * sizeof(float), cudaMemcpyDeviceToHost));
 
 	cudaFree(image_parts);
 
