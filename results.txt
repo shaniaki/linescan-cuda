@@ -1,5 +1,27 @@
 On the Mac machine:
-short dataset:
-v1 : 5840 ms
-v2 : 470 ms
-v3 : 212 ms 
+     Geforce                Geforce
+dataset 0:
+v1 : 5840 ms 5023.402690 ms 3854.143040 ms
+v2 : 470 ms 343.380220 ms   296.138300 ms 
+v3 : 212 ms 146.691560 ms   142.573850 ms
+
+dataset 1:
+v1 : 2720 ms 2009.065330 ms 986.422310 ms
+v2 : 710 ms 486.438250 ms   279.551400 ms
+v3 : 247 ms 167.432150 ms   79.355830 ms
+
+dataset 4:
+v1 :  ms                    
+v2 : 11950 ms               4763.020480 ms
+v3 : 5835 ms 4675.883260 ms 2095.969000 
+
+on zorn:
+dataset 1:
+v1 :  ms
+v2 :  ms
+v3 :  ms
+
+dataset 2:
+v1 : 33.11 ms
+v2 : 12.46 ms
+v3 : 6.71 ms
