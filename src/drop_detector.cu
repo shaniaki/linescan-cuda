@@ -161,15 +161,23 @@ runTest(int argc, char **argv)
 
 	d_reference = (float*)malloc(image_height*num_threads*sizeof(float));
 
-	struct timeval timerStart;
-	gettimeofday(&timerStart, NULL);
+	double kernel_time=0;
 
-	KERNELVER(d_reference, h_image_input, h_aoi_input, h_coeff_input, h_sw_input, image_height, image_width);
+	for (int i=0;i<=NUM_RUNS;i++)
+	{
+		struct timeval timerStart;
+		gettimeofday(&timerStart, NULL);
 
-	struct timeval timerStop, timerElapsed;
-	gettimeofday(&timerStop, NULL);
-	timersub(&timerStop, &timerStart, &timerElapsed);
-	double kernel_time = timerElapsed.tv_sec*1000.0+timerElapsed.tv_usec/1000.0;
+		KERNELVER(d_reference, h_image_input, h_aoi_input, h_coeff_input, h_sw_input, image_height, image_width);
+
+		struct timeval timerStop, timerElapsed;
+		gettimeofday(&timerStop, NULL);
+		timersub(&timerStop, &timerStart, &timerElapsed);
+		if (i>0)
+			kernel_time += timerElapsed.tv_sec*1000.0+timerElapsed.tv_usec/1000.0;
+	}
+
+	kernel_time /= NUM_RUNS;
 	printf("Processing time: %f (ms)\n", kernel_time);
 
 	// compute reference solution
@@ -183,9 +191,9 @@ runTest(int argc, char **argv)
 		{
 			if (abs(reference[i*N+j] - d_reference[i*N+j]) > 0.0001)
 				printf("Error at image line %d for nozzle %d: reference=%f, calculated=%f\n", i, j, reference[i*N+j], d_reference[i*N+j]);
-			printf("%f ",d_reference[i*N+j]);
+			//printf("%f ",d_reference[i*N+j]);
 		}
-		printf("\n");
+		//printf("\n");
 	}
 
     // cleanup memory
