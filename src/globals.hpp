@@ -9,7 +9,7 @@
 #define GLOBALS_HPP_
 
 // used for time measurement
-#define NUM_RUNS 100
+#define NUM_RUNS 10
 // internal buffer sizes
 #define BUFFER_SIZE 24
 // used in v4

@@ -160,7 +160,13 @@ runTest(int argc, char **argv)
 
 	// compute reference solution
 	reference = (float*)malloc(image_height*num_threads*sizeof(float));
+	struct timeval timerStart;
+	gettimeofday(&timerStart, NULL);
 	computeGold(reference, h_image_input, h_aoi_input, h_coeff_input, h_sw_input, image_height, image_width);
+	struct timeval timerStop, timerElapsed;
+	gettimeofday(&timerStop, NULL);
+	timersub(&timerStop, &timerStart, &timerElapsed);
+	printf("Serial processing time: %f (ms)\n", timerElapsed.tv_sec*1000.0+timerElapsed.tv_usec/1000.0);
 
 	// check result
 	for (int i=0;i<image_height;i++)
